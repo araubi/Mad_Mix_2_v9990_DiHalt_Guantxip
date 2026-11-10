@@ -12,6 +12,9 @@ from compile_effects import compile_effects
 from analyze_trace import load_sprites, sprite_pieces
 R=Path(__file__).resolve().parents[2]; B=R/'V9990/build'; A=Path(os.environ.get('MADMIX_ASSET_ROOT',R/'V9990/assets'))
 SJ=os.environ.get('SJASM','sjasm')
+# Optional: precompiled music/SFX/opening (from release v1.0) when the private
+# PSG captures and opening artwork are not available.
+PRE=Path(os.environ['MADMIX_PREBUILT']) if os.environ.get('MADMIX_PREBUILT') else None
 def asm(name):
     subprocess.run([SJ,str(R/'V9990/src'/f'{name}.asm'),str(B/f'{name}.bin')],cwd=R,check=True)
 def main():
@@ -186,7 +189,10 @@ def main():
             bank=upload_banks[padded];addr=address+off
             inc += [f'    ld a,{bank}','    ld ($6000),a',f'    ld a,{addr>>16}',f'    ld de,${addr&65535:04X}','    call set_write','    ld hl,$4000',f'    ld de,{len(chunk)}','    call upload']
     (B/'port-uploads.inc').write_text('\n'.join(inc)+'\n')
-    subprocess.run(['python3',str(R/'V9990/tools/compile_music.py')],check=True)
+    if PRE:
+        import shutil
+        for n in ('music-events.bin','music-events.json'):shutil.copy(PRE/n,B/n)
+    else:subprocess.run(['python3',str(R/'V9990/tools/compile_music.py')],check=True)
     music=(B/'music-events.bin').read_bytes(); music_bank=8+len(banks)
     meta=json.loads((B/'music-events.json').read_text()); loop=meta['loop']
     (B/'port-music.inc').write_text(f'MUSIC_BANK equ {music_bank}\nMUSIC_LOOP_BANK equ {music_bank+loop//16384}\nMUSIC_LOOP_PTR equ {0x4000+loop%16384}\n')
@@ -210,7 +216,7 @@ def main():
     (B/'branding-fanfare.bin').write_bytes(fanfare)
     (B/'branding-uploads.inc').write_text(f'BRANDING_FRAMES equ {frames+50}\n'+'\n'.join(inc)+'\n')
     (B/'branding.json').write_text(json.dumps({'music_frames':frames,'total_frames':frames+50,'hz':50,'source':'Spy vs Spy2 V9990 opening'},indent=2)+'\n')
-    opening=compile_opening(A,B)
+    opening=(PRE/'opening-b3.bin').read_bytes() if PRE else compile_opening(A,B)
     inc=[]
     for off in range(0,len(opening),16384):
         chunk=opening[off:off+16384];bank=8+len(banks);banks.append(chunk.ljust(16384,b'\0'))
@@ -219,7 +225,11 @@ def main():
     controls=(R/'V9990/src/port_presentation.asm').read_text().split('control:\n',1)[1].split('title_show:',1)[0]
     (B/'opening-control.inc').write_text('control:\n'+controls.replace('control_release:\n','control_release:\n    call opening_secret\n'))
     (B/'smooth-config.inc').write_text(f'SMOOTH_BANK equ {8+len(banks)}\n')
-    sfx_pools=compile_effects()
+    if PRE:
+        (B/'sfx-table.inc').write_text((PRE/'sfx-table.inc').read_text())
+        POOLS=((0x9E23+3,0xA201),(0xA310,0xA777))
+        sfx_pools=[(p,(PRE/f'sfx-runs-{n}.bin').read_bytes()) for n,p in enumerate(POOLS)]
+    else:sfx_pools=compile_effects()
     asm('port_sfx')
     for name in ('port_topo','port_ui','port_menu','port_presentation','port_slots','port_bridge','port_trampoline','port_restore','port_runtime','port_preload','port_boot'):
         asm(name)
