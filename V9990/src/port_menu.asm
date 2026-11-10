@@ -8,6 +8,8 @@ menu:
     ld de,$E800
     ld bc,UI_BYTES
     ldir
+    ld a,($CFF8)           ; port_boot: MSX version (3 = turbo R); C000+ is reused later
+    ld ($E831),a
     ld a,($CFF7)
     ld ($105D),a           ; hidden opening contact-immunity selection
     ld a,$C3

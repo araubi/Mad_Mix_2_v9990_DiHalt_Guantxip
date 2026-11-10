@@ -21,6 +21,11 @@
     jp ui_apply_set            ; E82A, game start: selected graphics set + palette
     jp ui_family               ; E82D, A=terrain family cache (0/56), at VBlank
 ui_dirs: db 0                  ; E830, read_controls: 0 = up goes up-left, 1 = up-right
+TURBO_R_ID: db 0               ; E831, port_menu copies BIOS $002D saved by port_boot (3 = turbo R)
+    assert TURBO_R_ID==$E831
+cpu_switch:
+    include "port_cpu_switch.inc"
+    assert cpu_switch==$E832
     assert ui_dirs==$E830
 ui_init:
     call display_off
@@ -164,12 +169,19 @@ ui_not_up:
     bit 2,a
     jr z,ui_not_down
     ld a,(hl)
-    cp 2
+    cp 3
     jr z,ui_menu_loop
     inc (hl)
     jr ui_menu_changed
 ui_not_down:
     ld a,(hl)                  ; left/right: change the row's value
+    cp 3
+    jr nz,ui_toggle
+    ld a,(TURBO_R_ID)          ; CPU row: fixed at Z80 without a turbo R
+    cp 3
+    jr c,ui_menu_loop
+    ld a,3
+ui_toggle:
     call ui_row_var
     ld a,(hl)
     xor 1
@@ -253,7 +265,7 @@ ui_row_chars:
     ld (ui_style),a
     ld a,(ui_draw_row)
     inc a
-    cp 3
+    cp 4
     jr c,ui_redraw_row
     ret
 ; A = row -> HL = its variable
@@ -265,6 +277,9 @@ ui_row_var:
     dec a
     ret z
     ld hl,ui_dirs
+    dec a
+    ret z
+    ld hl,ui_cpu
     ret
 ; A = character, B = x. Style in ui_style (0 selected, 64 unselected).
 ui_char:
@@ -306,6 +321,22 @@ ui_apply_set:
     ld a,i
     push af
     di
+    ld a,(TURBO_R_ID)          ; turbo R: S1990 register 6 = $60 Z80, $40 R800
+    cp 3                       ; (ROM mode, as BIOS CHGCPU), LED on port $A7
+    jr c,ui_apply_cpu_done
+    ld a,(ui_cpu)
+    or a
+    ld bc,$6000
+    jr z,ui_apply_cpu
+    ld bc,$4080
+ui_apply_cpu:
+    push bc
+    ld a,b
+    call cpu_switch
+    pop bc
+    ld a,c
+    out ($A7),a                ; R800 LED
+ui_apply_cpu_done:
     ld a,(gfx_set)
     ld hl,loaded_set
     cp (hl)
@@ -427,6 +458,7 @@ ui_stream_bank_next:
     jr ui_stream_record
 ui_stream_end:
     jp shared_select_ram
+ui_cpu: db 0                   ; 0 = Z80, 1 = R800 (turbo R only)
 gfx_set: db 0                  ; 0 = GUANTXIP (default), 1 = DIHALT
 loaded_set: db 1               ; the cartridge preloads DiHalt's set
 ui_family_banks: db 0,0        ; written by each set package

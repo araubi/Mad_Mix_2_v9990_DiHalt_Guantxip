@@ -58,6 +58,25 @@ boot:
     and 12
     or b
     ld ($CFF4),a
+    ld a,($002D)            ; MSX version: 3 = turbo R (menu offers R800)
+    ld ($CFF8),a
+    cp 3
+    jr c,boot_no_turbo_r
+    ; Park both CPUs inside cpu_switch at $E832 (see port_cpu_switch.inc): the
+    ; R800 resumes in BIOS CHGCPU now (it returns with EI), then the Z80 comes
+    ; back through our copy. From then on the menu's switch needs no BIOS.
+    ld hl,boot_cpu_switch
+    ld de,$E832
+    ld bc,boot_cpu_switch_end-boot_cpu_switch
+    ldir
+    ld a,$40
+    call $E832
+    di
+    ld a,$60
+    call $E832
+    xor a
+    out ($A7),a
+boot_no_turbo_r:
     call probe_and_preload
     ld hl,presentation_bytes
     ld de,$DA00
@@ -153,6 +172,9 @@ presentation_bytes: incbin "../build/port_presentation.bin"
 presentation_end:
 restore_code: incbin "../build/port_restore.bin"
 restore_end:
+boot_cpu_switch:
+    include "port_cpu_switch.inc"
+boot_cpu_switch_end:
 ; Embedded binaries must be assembled first; these are ROM data, not fallthrough.
 trampoline_bytes:
     incbin "../build/port_trampoline.bin"

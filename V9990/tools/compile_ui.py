@@ -28,11 +28,11 @@ def compile_ui(A,B,config):
    n=2+((color&0x38)>>3)*96+ord(c)-32
    credits+=packet((n%32)*8,(n//32)*8,(x+i)*8,y*8,8,8)
  output('credits',credits)
- # Menu: three rows (difficulty, graphics set, cursor-up direction). port_ui
+ # Menu: four rows (difficulty, graphics set, cursor-up direction, CPU). port_ui
  # draws them at run time from these strings: y, x, length, characters.
  menu=json.loads((A/'menu.json').read_text());assert menu['default']==0 and len(menu['options'])==2
- rows=[(72,menu['options']),(104,['GUANTXIP','DIHALT']),(136,['ARRIBA IZQDA','ARRIBA DCHA'])]
- lines=['ui_menu_texts:']+['    dw ui_mt%d'%i for i in range(6)]
+ rows=[(56,menu['options']),(88,['GUANTXIP','DIHALT']),(120,['ARRIBA IZQDA','ARRIBA DCHA']),(152,['Z80','R800'])]
+ lines=['ui_menu_texts:']+['    dw ui_mt%d'%i for i in range(8)]
  for r,(y,texts) in enumerate(rows):
   for v,text in enumerate(texts):
    assert len(text)<=12 and all(32<=ord(c)<96 for c in text)
