@@ -79,7 +79,7 @@ def sprites():
 def hud(bank1):
     src=Image.open(O/'ventana.png').convert('RGB').crop((0,0,256,192))
     life_src=None
-    cols=[];MAG=(255,0,238)
+    cols=[(0,0,0)];MAG=(255,0,238)   # HUD index 1 = black: pattern 1 (cleared cells) and backdrop-like areas
     for c in src.getdata():
         if c!=MAG and c not in cols:cols.append(c)
     # Life icon: Guantxip's pose-0 face, in the HUD bank.
@@ -103,7 +103,7 @@ def hud(bank1):
     for y in range(192):
         for x in range(256):
             if not(32<=x<224 and 16<=y<160):assert h.getpixel((x,y))!=0,'HUD must be opaque outside the window'
-    life=Image.frombytes('P',(24,24),bytes(0 if c==(255,0,255) else 32+idx[c] for c in face.getdata()))
+    life=Image.frombytes('P',(24,24),bytes(32+idx[(0,0,0) if c==(255,0,255) else c] for c in face.getdata()))  # opaque: plane B must not show through
     newstyles=[[near(dpal[b>>4])*16+near(dpal[b&15]) for b in s] for s in styles['styles']]
     return h,life,bank2,dict(styles,styles=newstyles,description=styles['description']+' Remapped by import_guantxip.py to the Guantxip HUD bank.')
 

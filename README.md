@@ -6,7 +6,7 @@
 
 ## Play it
 
-Download the ROM and Spanish or English manual from [Release v1.0](https://github.com/DiHaltStudio/madmix2-v9990/releases/tag/v1.0). Requires an MSX with Z80, V9990 cartridge and an ASCII16-compatible ROM loader. Put the ROM in `release/` and run `make run`. Controls: cursor keys or joystick to move; Space or fire to select and play. Choose STANDARD or HARD at the menu.
+Download the ROM and Spanish or English manual from [Release v1.0](https://github.com/DiHaltStudio/madmix2-v9990/releases/tag/v1.0). Requires an MSX with Z80, V9990 cartridge and an ASCII16-compatible ROM loader. Put the ROM in `release/` and run `make run`. Controls: cursor keys or joystick to move; Space or fire to select and play. Choose STANDARD or HARD at the menu, and the graphics set (GUANTXIP or DIHALT) with left/right.
 
 Manuals: [Español](V9990/docs/manual/manual-es.pdf) · [English](V9990/docs/manual/manual-en.pdf).
 
@@ -20,4 +20,4 @@ Please improve the game if you feel so! The art, maps and palette can be edited 
 
 ## Credits and rights
 
-Original game: Topo Soft, 1990. V9990 conversion: DiHalt Studio, 2026. This is an unofficial port for study, preservation and homage. Original game rights and trademarks remain with their respective owners.
+Original game: Topo Soft, 1990. V9990 conversion and DiHalt graphics set: DiHalt Studio, 2026. Guantxip graphics set (terrain, sprites and HUD from his V9990 remake art): Guantxip; his art remains his own. Graphics-set option and Guantxip import: araubi, with permission from DiHalt Studio; developed with Claude (Anthropic). This is an unofficial port for study, preservation and homage. Original game rights and trademarks remain with their respective owners.

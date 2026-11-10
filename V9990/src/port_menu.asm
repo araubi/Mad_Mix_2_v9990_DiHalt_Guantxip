@@ -25,7 +25,7 @@ menu:
     call $0683            ; existing V9990 title and continuous stage music
     call $E800
 credits_visible:
-    ld ix,UI_CREDITS
+    ld ix,credits
     call $E806
     call $E824             ; credits complete before display enable
     ld b,150
@@ -39,4 +39,6 @@ credits_wait:
     ld sp,($176D)
     ret
     include "../build/ui-api.inc"
+credits:
+    include "../build/ui-credits.inc"
     assert $<$2F1D

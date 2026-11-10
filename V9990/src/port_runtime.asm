@@ -77,6 +77,7 @@ startup_gate:
 retry_gate:
     call $E01E
 select_start_family:
+    call $E82A               ; load the graphics set chosen in the menu
     ; New game/checkpoint and descriptor family must agree after GAME OVER.
     ; The edited map loader uses an absolute stage ID, so a retained family
     ; from the previous game would mix its actors/start with the new map.
@@ -802,7 +803,8 @@ life_row:
 ; Caller has JUST entered VBlank. Six bytes fit before SAT/scroll publication.
 stage_palette:
     if ART_STAGE_ORIGINAL = 0
-    ret
+    ld a,(cache_family)
+    jp $E82D                 ; terrain colours of the family (Guantxip set)
     endif
     ld a,($3E8F)
     ld b,a

@@ -2,6 +2,7 @@
     include "../build/port-art-config.inc"
     include "../build/port-music.inc"
     include "../build/smooth-config.inc"
+    include "../build/gfx-sets.inc"
     org $E800
     jp ui_init
     jp ui_clear
@@ -17,6 +18,8 @@
     jp shared_load_helpers
     jp ui_show
     jp display_off             ; E827, survives menu/game overlays
+    jp ui_apply_set            ; E82A, game start: selected graphics set + palette
+    jp ui_family               ; E82D, A=terrain family cache (0/56), at VBlank
 ui_init:
     call display_off
     ld a,$C8
@@ -116,6 +119,10 @@ ui_wait:
     ret
 ui_choose:
     call display_off
+    di
+    ld a,MENU_PALETTE_BANK     ; menu font uses DiHalt's HUD bank colours
+    call ui_stream
+    ei
     xor a
     ld ($105F),a
     ld (ui_last),a
@@ -142,7 +149,11 @@ ui_menu_loop:
     ld a,c
     or a
     jr z,ui_menu_loop
-    and $0A
+    bit 1,a                    ; left/right: GUANTXIP <-> DIHALT
+    jr nz,ui_toggle_set
+    bit 0,a
+    jr nz,ui_toggle_set
+    and $08                    ; up: STANDARD, down: HARD
     ld a,0
     jr nz,ui_select
     inc a
@@ -153,6 +164,12 @@ ui_select:
     jr z,ui_menu_loop
     ld a,b
     ld ($105F),a
+    call ui_redraw
+    jr ui_menu_loop
+ui_toggle_set:
+    ld a,(gfx_set)
+    xor 1
+    ld (gfx_set),a
     call ui_redraw
     jr ui_menu_loop
 ui_confirm:
@@ -170,7 +187,153 @@ ui_redraw:
     jr z,ui_menu_draw
     ld ix,ui_hard
 ui_menu_draw:
+    call ui_draw
+    ld a,(gfx_set)
+    or a
+    ld ix,ui_set_guantxip
+    jr z,ui_set_draw
+    ld ix,ui_set_dihalt
+ui_set_draw:
     jp ui_draw
+
+; ---- Graphics sets (Guantxip / DiHalt) ----------------------------------
+; Packages in ROM, one record after another from $4000 of their first bank:
+;   01 lo mid hi lenL lenH data  VRAM write   02 dstL dstH lenL lenH data  RAM
+;   03 r14 lenL lenH data        palette      FF  continue at next bank $4000
+;   00                           end
+; Records never cross a bank. Called with DI. With ui_stream_irq set, a pending
+; audio IRQ is served between records (it maps the ROM itself, so re-map).
+ui_apply_set:
+    ld a,i
+    push af
+    di
+    ld a,(gfx_set)
+    ld hl,loaded_set
+    cp (hl)
+    jr z,ui_apply_palette
+    ld (hl),a
+    or a
+    ld a,GUANTXIP_SET_BANK
+    jr z,ui_apply_load
+    ld a,DIHALT_SET_BANK
+ui_apply_load:
+    ld hl,ui_stream_irq
+    inc (hl)
+    call ui_stream
+    ld hl,ui_stream_irq
+    dec (hl)
+ui_apply_palette:
+    ld a,(gfx_set)
+    or a
+    ld a,GUANTXIP_PALETTE_BANK
+    jr z,ui_apply_pal
+    ld a,DIHALT_PALETTE_BANK
+ui_apply_pal:
+    call ui_stream
+    ld a,$FF
+    ld (ui_last_family),a
+    pop af
+    ret po
+    ei
+    ret
+; A=0 (family 0) or 56 (family 1). Only on a change: rewrite terrain bank 0.
+ui_family:
+    ld hl,ui_last_family
+    cp (hl)
+    ret z
+    ld (hl),a
+    or a
+    ld a,(ui_family_banks)
+    jr z,ui_family_go
+    ld a,(ui_family_banks+1)
+ui_family_go:
+    or a
+    ret z
+    di
+    call ui_stream
+    ei
+    ret
+ui_stream:
+    ld (ui_stream_bank),a
+    ld hl,$4000
+ui_stream_record:
+    push hl
+    call shared_select_rom
+    pop hl
+    ld a,(ui_stream_bank)
+    ld ($6000),a
+    ld a,(hl)
+    inc hl
+    or a
+    jr z,ui_stream_end
+    inc a
+    jr z,ui_stream_bank_next
+    dec a
+    dec a
+    jr z,ui_stream_vram
+    dec a
+    jr z,ui_stream_ram
+    ld b,14                    ; palette: R#14 = entry*4
+    ld a,(hl)
+    inc hl
+    call ui_reg
+    ld c,$61
+    jr ui_stream_data
+ui_stream_vram:
+    xor a
+    out ($64),a                ; R#0.. auto-increment: write address
+    ld bc,$0363
+    otir
+    ld c,$60
+ui_stream_data:
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    inc hl
+    ld b,e
+    ld a,e
+    or a
+    jr z,ui_stream_out
+    inc d
+ui_stream_out:
+    otir
+    dec d
+    jr nz,ui_stream_out
+    jr ui_stream_next
+ui_stream_ram:
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    inc hl
+    ld c,(hl)
+    inc hl
+    ld b,(hl)
+    inc hl
+    ldir
+ui_stream_next:
+    ld a,(ui_stream_irq)
+    or a
+    jr z,ui_stream_record
+    push hl
+    call shared_select_ram
+    ei
+    nop
+    di
+    pop hl
+    jr ui_stream_record
+ui_stream_bank_next:
+    ld hl,ui_stream_bank
+    inc (hl)
+    ld hl,$4000
+    jr ui_stream_record
+ui_stream_end:
+    jp shared_select_ram
+gfx_set: db 0                  ; 0 = GUANTXIP (default), 1 = DIHALT
+loaded_set: db 1               ; the cartridge preloads DiHalt's set
+ui_family_banks: db 0,0        ; written by each set package
+ui_last_family: db $FF
+ui_stream_bank: db 0
+ui_stream_irq: db 0
 ; Only V9990 vertical flags tick music. Original MSX IRQ: acknowledge and return.
 ui_irq:
     push af
@@ -243,11 +406,13 @@ ui_clear_packets:
     db 0,0,0,96,0
     dw 1440
     db 0,96,0,96,$FF
-ui_credits:
-    include "../build/ui-credits.inc"
 ui_normal:
     include "../build/ui-normal.inc"
 ui_hard:
     include "../build/ui-hard.inc"
+ui_set_guantxip:
+    include "../build/ui-set0.inc"
+ui_set_dihalt:
+    include "../build/ui-set1.inc"
     include "port_shared_music.inc"
     assert $<=$F000

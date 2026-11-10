@@ -9,7 +9,7 @@ from compile_opening import compile_opening
 from compile_topo import compile_topo
 from compile_ui import compile_ui
 from compile_effects import compile_effects
-from analyze_trace import load_sprites, sprite_pieces
+from gfx_sets import compile_set, Package, pat8
 R=Path(__file__).resolve().parents[2]; B=R/'V9990/build'; A=Path(os.environ.get('MADMIX_ASSET_ROOT',R/'V9990/assets'))
 SJ=os.environ.get('SJASM','sjasm')
 # Optional: precompiled music/SFX/opening (from release v1.0) when the private
@@ -42,92 +42,21 @@ def main():
     assert all(len(rgb)==3 and all(isinstance(v,int) and 0<=v<=31 for v in rgb) for bank in colors for rgb in bank)
     assert all(config[k] in range(4) for k in ('hud_bank','terrain_bank','sprite_bank'))
     assert config['stage_colors'] in ('original','fixed')
-    (B/'port-art-config.inc').write_text(f"ART_PLANE_PALETTES equ {config['hud_bank']+4*config['terrain_bank']}\nART_SPRITE_ATTR equ {32+64*config['sprite_bank']}\nART_DETAIL_ATTR equ {32+64*config['terrain_bank']}\nART_STAGE_PALETTE equ {4*(16*config['terrain_bank']+1)}\nART_STAGE_ORIGINAL equ {int(config['stage_colors']=='original')}\n")
-    def indexed(path,size,bank):
-        im=local_image(path,bank,A);assert im.size==size,(path,size)
-        return im
+    (B/'port-art-config.inc').write_text(f"ART_PLANE_PALETTES equ {config['hud_bank']+4*config['terrain_bank']}\nART_SPRITE_ATTR equ {32+64*config['sprite_bank']}\nART_DETAIL_ATTR equ {32+64*config['sprite_bank']}\nART_STAGE_PALETTE equ {4*(16*config['terrain_bank']+1)}\nART_STAGE_ORIGINAL equ {int(config['stage_colors']=='original')}\n")
+    # Both graphics sets compile to the same blobs (gfx_sets.compile_set).
+    # DiHalt's is preloaded at boot exactly as before; either one is streamed
+    # again at game start by ui_apply_set when the menu choice changes.
+    dihalt=compile_set(A,config)
+    gx_root=R/'V9990/assets-guantxip'
+    guantxip=compile_set(gx_root,config,guantxip=True)
     uploads=[]
-    # 8x8 patterns occupy physical 256-pixel-wide 4bpp pages.
-    def pat8(tiles):
-        data=bytearray(((len(tiles)+31)//32)*1024)
-        for i,t in enumerate(tiles):
-            for y in range(8):
-                for x in range(0,8,2): data[(i//32)*1024+(i%32)*4+y*128+x//2]=(t[y*8+x]<<4)|t[y*8+x+1]
-        return data
-    patterns=[bytes(64),bytes([1])*64]
-    # Editable font mask and gradients are authoritative, never re-extracted.
-    fontpath=A/'font.png'
-    im=local_image(fontpath,config['hud_bank'],A)
-    # Font PNG is a mask: index 1 background, 2 foreground. Compile original
-    # nine eight-line color gradients into plane-A's independent palette.
-    styles=json.loads((A/'font-styles.json').read_text())['styles']
-    assert len(styles)==9 and all(len(s)==8 and all(isinstance(v,int) and 0<=v<=255 for v in s) for s in styles)
-    assert im.mode=='P' and im.size==(128,48) and set(im.tobytes())<={1,2}
-    for style in range(9):
-        for c in range(96):
-            mask=im.crop(((c%16)*8,(c//16)*8,(c%16)*8+8,(c//16)*8+8)).tobytes()
-            patterns.append(bytes((styles[style][y] & 15) if mask[y*8+x]==2 else (styles[style][y]>>4) for y in range(8) for x in range(8)))
-    index={t:i for i,t in enumerate(patterns)}
-    def tile_id(t):
-        if t not in index:index[t]=len(patterns);patterns.append(t)
-        return index[t]
-    composition=ET.parse(A/'hud.tmx').getroot()
-    assert (composition.get('width'),composition.get('height'))==('32','24')
-    ref=composition.find('tileset');assert ref.get('firstgid')=='1'
-    tsx=A/ref.get('source');ts=ET.parse(tsx).getroot()
-    atlas=indexed(tsx.parent/ts.find('image').get('source'),(256,192),config['hud_bank'])
-    gids=[int(v) for v in composition.find('layer/data').text.split(',') if v.strip()]
-    assert len(gids)==768 and all(0<=v<=768 for v in gids)
-    hud=Image.new('P',(256,192));hud.putpalette(atlas.getpalette())
-    for i,gid in enumerate(gids):
-        if gid:
-            n=gid-1;x=(n%32)*8;y=(n//32)*8
-            hud.paste(atlas.crop((x,y,x+8,y+8)),((i%32)*8,(i//32)*8))
-    for y in range(192):
-        for x in range(256):
-            if not (32<=x<224 and 16<=y<160):assert hud.getpixel((x,y))!=0, 'HUD must remain opaque outside playfield'
-    names=[]
-    for y in range(24):
-        for x in range(32):names.append(tile_id(hud.crop((x*8,y*8,x*8+8,y*8+8)).tobytes()))
-    (B/'port-hud-names.bin').write_bytes(struct.pack('<768H',*names))
-    im=indexed(A/'life.png',(24,24),config['hud_bank'])
-    life=[tile_id(im.crop((x*8,y*8,x*8+8,y*8+8)).tobytes()) for y in range(3) for x in range(3)]
-    (B/'port-life-names.bin').write_bytes(struct.pack('<9H',*life))
-    # Native background art is always read from the editable TSX image.
-    tiles=[]
-    cpu_tiles=[]
-    for fam in range(2):
-        ts=ET.parse(A/f'tiles/family{fam}.tsx').getroot();im=indexed(A/'tiles'/ts.find('image').get('source'),(256,112),config['terrain_bank'])
-        assert im.size==(256,112) and im.mode=='P'
-        occupancy=(A/f'tiles/family{fam}-occupancy.dat').read_bytes()
-        assert len(occupancy)==3584,'Occupancy must contain 56 original 32x16 masks'
-        cpu_tiles.append(occupancy)
-        for t in range(56):
-            for sy in range(2):
-                for sx in range(4):
-                    x=(t%8)*32+sx*8;y=(t//8)*16+sy*8
-                    tiles.append(im.crop((x,y,x+8,y+8)).tobytes())
-    assert len(pat8(patterns))<=0x10000
-    uploads += [(0,pat8(patterns)),(0x40000,pat8(tiles)),(0x48000,pat8(tiles)),(0x72000,pat8(tiles))]
-    # Master sprite atlas. Three identities per pose preserve original reflected
-    # four-pixel alignment; runtime HUD clips the complete hardware pieces.
-    sprites=load_sprites(A); unique=[];lookup={};descs=bytearray();offsets=[]
-    for variant in range(3):
-        for sid in range(105):
-            x=68 if variant==1 else 64
-            pieces=sprite_pieces(dict(a=sid|(128 if variant else 0),d=32,e=x),sprites)
-            offsets.append(len(descs));descs.append(len(pieces))
-            for p in pieces:
-                pix=bytes(p['pixels'])
-                if pix not in lookup:lookup[pix]=len(unique);unique.append(pix)
-                n=lookup[pix]
-                descs += struct.pack('<bbHHB',p['x']-x,p['y']-32,(n%16)*16,512+(n//16)*16,32+64*p['bank'])
-    master=bytearray(((len(unique)+15)//16)*2048)
-    for i,t in enumerate(unique):
-        for y in range(16):
-            for x in range(0,16,2): master[(i//16)*2048+(i%16)*8+y*128+x//2]=(t[y*16+x]<<4)|t[y*16+x+1]
-    assert len(master)<0x10000
-    uploads.append((0x10000,master))
+    (B/'port-hud-names.bin').write_bytes(dihalt['hud_names'])
+    (B/'port-life-names.bin').write_bytes(dihalt['life_names'])
+    cpu_tiles=dihalt['cpu_tiles']
+    assert guantxip['cpu_tiles']==cpu_tiles,'Both sets keep the original collision/occupancy masks'
+    uploads += [(0,dihalt['patterns']),(0x40000,dihalt['tiles']),(0x48000,dihalt['tiles']),(0x72000,dihalt['tiles'])]
+    unique=range(dihalt['master_patterns']);descs=dihalt['descs']
+    uploads.append((0x10000,dihalt['master']))
     # Shared one-pixel black detail pattern, reserved slot126 in each cache.
     uploads += [(0x33870,b'\x10'),(0x3B870,b'\x10')]
     details=bytearray()
@@ -137,7 +66,8 @@ def main():
         details+=bytes((x&248,y,mask,(x&248)+7-(pixel.bit_length()-1)))
     (B/'port-detail-points.bin').write_bytes(details)
     (B/'port-pose-data.bin').write_bytes(descs)
-    (B/'port-pose-offsets.bin').write_bytes(b''.join(struct.pack('<H',x) for x in offsets))
+    (B/'port-pose-offsets.bin').write_bytes(dihalt['offsets'])
+    for k in ('descs','offsets'):assert len(guantxip[k])<=len(dihalt[k]),f'Guantxip {k} larger than the resident DiHalt area'
     # Store full editable maps in VRAM as non-displayed data. Runtime loads the
     # selected 3584-byte bank into original A900 collision/game map RAM.
     maps=bytearray(9*4096)
@@ -222,6 +152,32 @@ def main():
         chunk=opening[off:off+16384];bank=8+len(banks);banks.append(chunk.ljust(16384,b'\0'))
         inc += [f'    ld a,{bank}','    ld ($6000),a',f'    ld a,{off>>16}',f'    ld de,{off&65535}','    call set_write','    ld hl,$4000',f'    ld de,{len(chunk)}','    call upload']
     (B/'opening-uploads.inc').write_text('\n'.join(inc)+'\n')
+    # Graphics-set packages streamed by port_ui (ui_stream). RAM targets are
+    # resident labels known only after assembly: lay out with placeholders,
+    # then rebuild the same-sized banks with the real addresses.
+    def set_package(st,addr,family_banks):
+        pk=Package()
+        pk.ram(addr['ui_family_banks'],bytes(family_banks))
+        pk.ram(addr['pose_offsets'],st['offsets']);pk.ram(addr['pose_data'],st['descs'])
+        pk.ram(addr['hud_names'],st['hud_names']);pk.ram(addr['life_names'],st['life_names'])
+        pk.vram(0,st['patterns']);pk.vram(0x10000,st['master'])
+        for a in (0x40000,0x48000,0x72000):pk.vram(a,st['tiles'])
+        return pk.blobs()
+    def pal_package(entry,data):
+        pk=Package();pk.palette(entry,data);return pk.blobs()
+    gfx={}
+    def place(name,blobs):
+        gfx[name]=(8+len(banks),len(blobs));banks.extend(blobs)
+    place('GUANTXIP_PALETTE_BANK',pal_package(0,guantxip['palette']))
+    place('DIHALT_PALETTE_BANK',pal_package(0,dihalt['palette']))
+    place('MENU_PALETTE_BANK',pal_package(32,dihalt['palette'][96:144]))
+    place('GUANTXIP_FAMILY0_BANK',pal_package(1,guantxip['family'][0]))
+    place('GUANTXIP_FAMILY1_BANK',pal_package(1,guantxip['family'][1]))
+    dummy=dict.fromkeys(('ui_family_banks','pose_offsets','pose_data','hud_names','life_names'),0x1100)
+    gx_family=(gfx['GUANTXIP_FAMILY0_BANK'][0],gfx['GUANTXIP_FAMILY1_BANK'][0])
+    place('GUANTXIP_SET_BANK',set_package(guantxip,dummy,gx_family))
+    place('DIHALT_SET_BANK',set_package(dihalt,dummy,(0,0)))
+    (B/'gfx-sets.inc').write_text(''.join(f'{k} equ {v[0]}\n' for k,v in gfx.items()))
     controls=(R/'V9990/src/port_presentation.asm').read_text().split('control:\n',1)[1].split('title_show:',1)[0]
     (B/'opening-control.inc').write_text('control:\n'+controls.replace('control_release:\n','control_release:\n    call opening_secret\n'))
     (B/'smooth-config.inc').write_text(f'SMOOTH_BANK equ {8+len(banks)}\n')
@@ -235,8 +191,8 @@ def main():
         asm(name)
         if name=='port_ui':
             listing=(B/'port_ui.lst').read_text()
-            addr=int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?ui_credits\s*$',listing,re.M)[1],16)
-            (B/'ui-api.inc').write_text(f'UI_BYTES equ {len((B/"port_ui.bin").read_bytes())}\nUI_CREDITS equ ${addr:04X}\n')
+            (B/'ui-api.inc').write_text(f'UI_BYTES equ {len((B/"port_ui.bin").read_bytes())}\n')
+            set_addr={'ui_family_banks':int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?ui_family_banks\s*$',listing,re.M)[1],16)}
             audio_api=[]
             for label in ('music_active','music_bank','music_ptr','music_shadow'):
                 address=int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?shared_'+label+r'\s*$',listing,re.M)[1],16)
@@ -244,6 +200,11 @@ def main():
             (B/'ui-audio-api.inc').write_text('\n'.join(audio_api)+'\n')
         if name=='port_runtime':
             listing=(B/'port_runtime.lst').read_text();api=[]
+            for label in ('pose_offsets','pose_data','hud_names','life_names'):
+                set_addr[label]=int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?'+label+r'\s*$',listing,re.M)[1],16)
+            for name,st,fam in (('GUANTXIP_SET_BANK',guantxip,gx_family),('DIHALT_SET_BANK',dihalt,(0,0))):
+                first,count=gfx[name];blobs=set_package(st,set_addr,fam);assert len(blobs)==count
+                banks[first-8:first-8+count]=blobs
             for label in ('reg_write','set_write','sprite_page','scroll_x','scroll_y','piece_count','audio_clock','vblank','command','pattern_slot','wait_command','clear_ui','display_off','display_on'):
                 addr=int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?'+label+r'\s*$',listing,re.M)[1],16)
                 api.append(f'{label} equ ${addr:04X}')
@@ -329,7 +290,25 @@ def main():
     rom+=game[:20000].ljust(32768,b'\xff')+game[20000:].ljust(32768,b'\xff')+b''.join(banks)
     size=1
     while size<len(rom):size*=2
-    rom=rom.ljust(size,b'\xff')
+    rom=bytearray(rom.ljust(size,b'\xff'))
+    # openMSX/BlueMSX guess the mapper from LD (nn),A bytes. Make ASCII16 win
+    # clearly (>=4 over Konami and ASCII8) with filler in the unused last bank.
+    def votes(d):
+        c=dict(K=0,S=0,A8=0,A16=0)
+        for i in range(len(d)-2):
+            if d[i]==0x32:
+                v=d[i+1]|d[i+2]<<8
+                if v in (0x4000,0x8000,0xA000):c['K']+=1
+                elif v in (0x5000,0x9000,0xB000):c['S']+=1
+                elif v==0x6000:c['K']+=1;c['A8']+=1;c['A16']+=1
+                elif v in (0x6800,0x7800):c['A8']+=1
+                elif v==0x7000:c['S']+=1;c['A8']+=1;c['A16']+=1
+                elif v==0x77FF:c['A16']+=1
+        c['A8']-=1;return c
+    c=votes(rom);n7000=max(0,c['K']+4-c['A16']);filler=b'\x32\x00\x70'*n7000+b'\x32\xFF\x77'*4
+    assert rom[-len(filler)-16:]==b'\xff'*(len(filler)+16),'last bank must be unused for the mapper filler'
+    rom[-len(filler)-16:-16]=filler
+    c=votes(rom);assert c['A16']>=max(c['K'],c['S'],c['A8'])+4,c
     rom_tmp=B/'madmix2-v99990.rom.tmp'
     rom_tmp.write_bytes(rom)
     rom_tmp.replace(B/'madmix2-v99990.rom')
