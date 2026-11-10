@@ -28,22 +28,14 @@ def compile_ui(A,B,config):
    n=2+((color&0x38)>>3)*96+ord(c)-32
    credits+=packet((n%32)*8,(n//32)*8,(x+i)*8,y*8,8,8)
  output('credits',credits)
+ # Menu: three rows (difficulty, graphics set, cursor-up direction). port_ui
+ # draws them at run time from these strings: y, x, length, characters.
  menu=json.loads((A/'menu.json').read_text());assert menu['default']==0 and len(menu['options'])==2
- for selected,name in enumerate(('normal','hard')):
-  data=bytearray()
-  for row,(text,y) in enumerate(zip(menu['options'],menu['rows'])):
-   x=(256-len(text)*16)//2;style=int(row!=selected)
-   for i,c in enumerate(text):
-    n=ord(c)-32;assert 0<=n<64
-    data+=packet((n%16)*16,1312+style*64+(n//16)*16,x+i*16,y,16,16)
-  n=ord('>')-32;data+=packet((n%16)*16,1312+(n//16)*16,menu['arrow_x'],menu['rows'][selected],16,16)
-  output(name,data)
- # Graphics-set row under the difficulty options: < NAME >, toggled with left/right.
- for n,name in enumerate(('GUANTXIP','DIHALT')):
-  data=bytearray();text='< '+name+' >';x=(256-len(text)*16)//2;y=menu.get('set_row',152)
-  for i,c in enumerate(text):
-   if c==' ':continue
-   k=ord(c)-32;style=1 if c in '<>' else 0
-   data+=packet((k%16)*16,1312+style*64+(k//16)*16,x+i*16,y,16,16)
-  output(f'set{n}',data)
+ rows=[(72,menu['options']),(104,['GUANTXIP','DIHALT']),(136,['ARRIBA IZQDA','ARRIBA DCHA'])]
+ lines=['ui_menu_texts:']+['    dw ui_mt%d'%i for i in range(6)]
+ for r,(y,texts) in enumerate(rows):
+  for v,text in enumerate(texts):
+   assert len(text)<=12 and all(32<=ord(c)<96 for c in text)
+   lines.append('ui_mt%d: db %d,%d,%d,"%s"'%(r*2+v,y,(256-len(text)*16)//2,len(text),text))
+ (B/'ui-menu.inc').write_text('\n'.join(lines)+'\n')
  return [(0x29000,raw),(0x2D000,bytes([0x11])*12288)]

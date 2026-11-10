@@ -97,7 +97,24 @@ no_joy_right:
     jr z,no_joy_fire
     set 4,e
 no_joy_fire:
+    ld a,($E830)                 ; menu option: up goes up-right (turn 90 degrees)
+    or a
     ld a,e
+    jr z,controls_done
+    and $F0
+    bit 3,e                      ; up -> right
+    jr z,$+4
+    or 1
+    bit 0,e                      ; right -> down
+    jr z,$+4
+    or 4
+    bit 2,e                      ; down -> left
+    jr z,$+4
+    or 2
+    bit 1,e                      ; left -> up
+    jr z,$+4
+    or 8
+controls_done:
     pop hl
     pop de
     pop bc

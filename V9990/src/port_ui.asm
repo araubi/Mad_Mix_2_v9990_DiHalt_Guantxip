@@ -20,6 +20,8 @@
     jp display_off             ; E827, survives menu/game overlays
     jp ui_apply_set            ; E82A, game start: selected graphics set + palette
     jp ui_family               ; E82D, A=terrain family cache (0/56), at VBlank
+ui_dirs: db 0                  ; E830, read_controls: 0 = up goes up-left, 1 = up-right
+    assert ui_dirs==$E830
 ui_init:
     call display_off
     ld a,$C8
@@ -126,6 +128,7 @@ ui_choose:
     xor a
     ld ($105F),a
     ld (ui_last),a
+    ld (ui_row),a
     call ui_redraw
 ui_release:
     call ui_input
@@ -149,27 +152,29 @@ ui_menu_loop:
     ld a,c
     or a
     jr z,ui_menu_loop
-    bit 1,a                    ; left/right: GUANTXIP <-> DIHALT
-    jr nz,ui_toggle_set
-    bit 0,a
-    jr nz,ui_toggle_set
-    and $08                    ; up: STANDARD, down: HARD
-    ld a,0
-    jr nz,ui_select
-    inc a
-ui_select:
-    ld b,a
-    ld a,($105F)
-    cp b
+    ld hl,ui_row               ; up/down: choose the row
+    bit 3,a
+    jr z,ui_not_up
+    ld a,(hl)
+    or a
     jr z,ui_menu_loop
-    ld a,b
-    ld ($105F),a
-    call ui_redraw
-    jr ui_menu_loop
-ui_toggle_set:
-    ld a,(gfx_set)
+    dec (hl)
+    jr ui_menu_changed
+ui_not_up:
+    bit 2,a
+    jr z,ui_not_down
+    ld a,(hl)
+    cp 2
+    jr z,ui_menu_loop
+    inc (hl)
+    jr ui_menu_changed
+ui_not_down:
+    ld a,(hl)                  ; left/right: change the row's value
+    call ui_row_var
+    ld a,(hl)
     xor 1
-    ld (gfx_set),a
+    ld (hl),a
+ui_menu_changed:
     call ui_redraw
     jr ui_menu_loop
 ui_confirm:
@@ -179,22 +184,116 @@ ui_confirm_release:
     and $10
     jr nz,ui_confirm_release
     ret
+; Rows: 0 difficulty ($105F), 1 graphics set, 2 cursor-up direction. The
+; cursor row is drawn in the selected style between < >, the others plain.
 ui_redraw:
     call ui_clear
-    ld a,($105F)
+    xor a
+ui_redraw_row:
+    ld (ui_draw_row),a
+    call ui_row_var            ; HL = row variable (0/1)
+    ld a,(ui_draw_row)
+    add a,a
+    add a,(hl)
+    add a,a
+    ld e,a
+    ld d,0
+    ld hl,ui_menu_texts
+    add hl,de
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    ex de,hl                   ; HL = y, x, length, characters
+    ld a,(hl)
+    ld (ui_pkt+4),a
+    inc hl
+    ld b,(hl)
+    inc hl
+    ld c,(hl)
+    inc hl
+    ld a,(ui_row)
+    ld e,a
+    ld a,(ui_draw_row)
+    cp e
+    ld a,64
+    jr nz,ui_row_style
+    push bc                    ; cursor row: '<' and '>' around the value
+    ld a,b
+    sub 32
+    ld b,a
+    ld a,'<'
+    call ui_char
+    pop bc
+    push bc
+    ld a,c
+    add a,a
+    add a,a
+    add a,a
+    add a,a
+    add a,b
+    add a,16
+    ld b,a
+    ld a,'>'
+    call ui_char
+    pop bc
+    xor a
+ui_row_style:
+    ld (ui_style),a
+ui_row_chars:
+    ld a,(hl)
+    cp ' '
+    call nz,ui_char
+    inc hl
+    ld a,b
+    add a,16
+    ld b,a
+    dec c
+    jr nz,ui_row_chars
+    ld a,64                    ; arrows use the unselected style
+    ld (ui_style),a
+    ld a,(ui_draw_row)
+    inc a
+    cp 3
+    jr c,ui_redraw_row
+    ret
+; A = row -> HL = its variable
+ui_row_var:
+    ld hl,$105F
     or a
-    ld ix,ui_normal
-    jr z,ui_menu_draw
-    ld ix,ui_hard
-ui_menu_draw:
+    ret z
+    ld hl,gfx_set
+    dec a
+    ret z
+    ld hl,ui_dirs
+    ret
+; A = character, B = x. Style in ui_style (0 selected, 64 unselected).
+ui_char:
+    push hl
+    push bc
+    sub 32
+    ld e,a
+    and 15
+    add a,a
+    add a,a
+    add a,a
+    add a,a
+    ld (ui_pkt),a
+    ld a,e
+    and $30
+    ld hl,ui_style
+    add a,(hl)
+    ld l,a
+    ld h,0
+    ld de,1312
+    add hl,de
+    ld (ui_pkt+1),hl
+    ld a,b
+    ld (ui_pkt+3),a
+    ld ix,ui_pkt
     call ui_draw
-    ld a,(gfx_set)
-    or a
-    ld ix,ui_set_guantxip
-    jr z,ui_set_draw
-    ld ix,ui_set_dihalt
-ui_set_draw:
-    jp ui_draw
+    pop bc
+    pop hl
+    ret
 
 ; ---- Graphics sets (Guantxip / DiHalt) ----------------------------------
 ; Packages in ROM, one record after another from $4000 of their first bank:
@@ -400,19 +499,18 @@ ui_command: dw 0,0,0,1536,8,8
     db 0,$0C,$FF,0,0,0,0,0,$40 ; P1 UI canvas is lower bank A only
 ui_ticks equ $105E
 ui_last: db 0
+ui_row: db 0
+ui_draw_row: db 0
+ui_style: db 64
+ui_pkt: db 0
+    dw 0
+    db 0,0,16,16,$FF
 ui_clear_packets:
     db 0
     dw 1440
     db 0,0,0,96,0
     dw 1440
     db 0,96,0,96,$FF
-ui_normal:
-    include "../build/ui-normal.inc"
-ui_hard:
-    include "../build/ui-hard.inc"
-ui_set_guantxip:
-    include "../build/ui-set0.inc"
-ui_set_dihalt:
-    include "../build/ui-set1.inc"
+    include "../build/ui-menu.inc"
     include "port_shared_music.inc"
     assert $<=$F000

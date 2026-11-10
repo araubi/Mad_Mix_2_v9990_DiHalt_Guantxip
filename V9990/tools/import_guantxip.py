@@ -84,6 +84,14 @@ def hud(bank1):
         if c!=MAG and c not in cols:cols.append(c)
     # Life icon: Guantxip's pose-0 face, in the HUD bank.
     s3=Image.open(O/'sprites_paleta3.png').convert('RGB');face=s3.crop((0,0,24,24))
+    # The game draws Pac's eye as a separate piece (pose 6, just below pose 0 in
+    # the sheet), four lines below the pose's origin, as the game places it
+    # (matched on screen with pose 3 + eye 9): add it to the life icon.
+    eye=s3.crop((0,24,24,32))
+    for y in range(8):
+        for x in range(24):
+            c=eye.getpixel((x,y))
+            if c!=(255,0,255):face.putpixel((x,y+4),c)
     for c in face.getdata():
         if c!=(255,0,255) and c not in cols:cols.append(c)
     # DiHalt score/text styles: keep their colours when there is room.
