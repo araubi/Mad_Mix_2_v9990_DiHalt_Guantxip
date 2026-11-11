@@ -52,13 +52,18 @@ def main():
     uploads=[]
     (B/'port-hud-names.bin').write_bytes(dihalt['hud_names'])
     (B/'port-life-names.bin').write_bytes(dihalt['life_names'])
-    # Occupancy masks are shared: Guantxip only adds masks for his new tiles,
-    # at tile numbers that Topo's maps (the DiHalt set) never use.
-    cpu_tiles=guantxip['cpu_tiles']
+    # Occupancy masks (the original game's tile masks, RAM 67CB/800B) are
+    # shared: Guantxip's new tiles at numbers Topo's maps never use get their
+    # mask in the image. Family-0 tile 30 is used by both sets with different
+    # masks: each set package fills ui_occ_patch and ui_apply_set copies it.
+    cpu_tiles=[bytearray(c) for c in guantxip['cpu_tiles']]
+    cpu_tiles[0][30*64:31*64]=dihalt['cpu_tiles'][0][30*64:31*64]
     new_tiles=json.loads((gx_root/'baldosas-mapa.json').read_text())['ocupacion']
+    # The boot preload is the DiHalt set (no stream when it stays selected).
+    (B/'ui-occ-dihalt.inc').write_text('    db '+','.join(str(v) for v in dihalt['cpu_tiles'][0][30*64:31*64])+'\n')
     for fam in range(2):
         for t in range(56):
-            if str(t) not in new_tiles[f'family{fam}']:assert cpu_tiles[fam][t*64:t*64+64]==dihalt['cpu_tiles'][fam][t*64:t*64+64],(fam,t)
+            if str(t) not in new_tiles[f'family{fam}'] or (fam,t)==(0,30):assert cpu_tiles[fam][t*64:t*64+64]==dihalt['cpu_tiles'][fam][t*64:t*64+64],(fam,t)
     uploads += [(0,dihalt['patterns']),(0x40000,dihalt['tiles']),(0x48000,dihalt['tiles']),(0x72000,dihalt['tiles'])]
     unique=range(dihalt['master_patterns']);descs=dihalt['descs']
     uploads.append((0x10000,dihalt['master']))
@@ -159,6 +164,7 @@ def main():
         pk.ram(addr['ui_family_banks'],bytes(family_banks));pk.ram(addr['ui_power_on'],st['power'])
         pk.ram(addr['pose_offsets'],st['offsets']);pk.ram(addr['pose_data'],st['descs'])
         pk.ram(addr['hud_names'],st['hud_names']);pk.ram(addr['life_names'],st['life_names'])
+        pk.ram(addr['ui_occ_patch'],st['cpu_tiles'][0][30*64:31*64])
         pk.vram(0,st['patterns']);pk.vram(0x10000,st['master'])
         for a in (0x40000,0x48000,0x72000):pk.vram(a,st['tiles'])
         pk.vram(0x20000,st['maps'])
@@ -173,7 +179,7 @@ def main():
     place('MENU_PALETTE_BANK',pal_package(32,dihalt['palette'][96:144]))
     place('GUANTXIP_FAMILY0_BANK',pal_package(1,guantxip['family'][0]))
     place('GUANTXIP_FAMILY1_BANK',pal_package(1,guantxip['family'][1]))
-    dummy=dict.fromkeys(('ui_family_banks','ui_power_on','pose_offsets','pose_data','hud_names','life_names'),0x1100)
+    dummy=dict.fromkeys(('ui_family_banks','ui_power_on','ui_occ_patch','pose_offsets','pose_data','hud_names','life_names'),0x1100)
     gx_family=(gfx['GUANTXIP_FAMILY0_BANK'][0],gfx['GUANTXIP_FAMILY1_BANK'][0])
     place('GUANTXIP_SET_BANK',set_package(guantxip,dummy,gx_family))
     place('DIHALT_SET_BANK',set_package(dihalt,dummy,(0,0)))
@@ -192,7 +198,7 @@ def main():
         if name=='port_ui':
             listing=(B/'port_ui.lst').read_text()
             (B/'ui-api.inc').write_text(f'UI_BYTES equ {len((B/"port_ui.bin").read_bytes())}\n')
-            set_addr={k:int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?'+k+r'\s*$',listing,re.M)[1],16) for k in ('ui_family_banks','ui_power_on')}
+            set_addr={k:int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?'+k+r'\s*$',listing,re.M)[1],16) for k in ('ui_family_banks','ui_power_on','ui_occ_patch')}
             audio_api=[]
             for label in ('music_active','music_bank','music_ptr','music_shadow'):
                 address=int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?shared_'+label+r'\s*$',listing,re.M)[1],16)

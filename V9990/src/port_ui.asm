@@ -421,6 +421,10 @@ ui_apply_palette:
     ld a,DIHALT_PALETTE_BANK
 ui_apply_pal:
     call ui_stream
+    ld hl,ui_occ_patch         ; family-0 tile 30 mask of this set (game RAM 67CB)
+    ld de,$67CB+30*64
+    ld bc,64
+    ldir
     ld a,$FF
     ld (ui_last_family),a
     pop af
@@ -523,6 +527,8 @@ ui_cpu: db 0                   ; 0 = Z80, 1 = R800 (turbo R only)
 gfx_set: db 0                  ; 0 = GUANTXIP (default), 1 = DIHALT
 loaded_set: db 1               ; the cartridge preloads DiHalt's set
 ui_family_banks: db 0,0        ; written by each set package
+ui_occ_patch:                  ; written by each set package: tile 30 occupancy mask
+    include "../build/ui-occ-dihalt.inc"
 ui_last_family: db $FF
 ui_stream_bank: db 0
 ui_stream_irq: db 0

@@ -3,12 +3,34 @@ fase 1 (23,14): 11->22
 fase 1 (29,16): 2->5
 fase 1 (20,27): 11->22
 fase 1 (36,27): 11->22
+fase 2 (44,15): 30->27 (misma imagen)
 fase 2 (25,13): 4->7
-fase 2 (44,15): 30->8
+fase 2 (44,15): 27->8
 fase 2 (29,16): 2->5
 fase 2 (20,18): 27->7
 fase 2 (16,22): 27->7
 fase 2 (12,26): 27->23
+fase 2 (34,6): 14->30 (bajo el muro grande)
+fase 2 (35,7): 14->30 (bajo el muro grande)
+fase 2 (36,8): 14->30 (bajo el muro grande)
+fase 2 (37,9): 14->30 (bajo el muro grande)
+fase 2 (38,10): 14->30 (bajo el muro grande)
+fase 2 (39,11): 14->30 (bajo el muro grande)
+fase 2 (40,12): 14->30 (bajo el muro grande)
+fase 2 (41,13): 14->30 (bajo el muro grande)
+fase 2 (42,14): 14->30 (bajo el muro grande)
+fase 2 (43,15): 14->30 (bajo el muro grande)
+fase 2 (45,17): 14->30 (bajo el muro grande)
+fase 2 (46,18): 14->30 (bajo el muro grande)
+fase 2 (47,19): 14->30 (bajo el muro grande)
+fase 2 (48,20): 14->30 (bajo el muro grande)
+fase 2 (49,21): 14->30 (bajo el muro grande)
+fase 2 (50,22): 14->30 (bajo el muro grande)
+fase 2 (51,23): 14->30 (bajo el muro grande)
+fase 2 (52,24): 14->30 (bajo el muro grande)
+fase 2 (53,25): 14->30 (bajo el muro grande)
+fase 2 (54,26): 14->30 (bajo el muro grande)
+fase 3 (31,26): 30->27 (misma imagen)
 fase 3 (11,24): 11->22
 fase 3 (12,26): 27->23
 fase 3 (32,28): 41->38 omitido (cambia la clase 7->6)
@@ -19,6 +41,27 @@ fase 3 (28,32): 41->38 omitido (cambia la clase 7->6)
 fase 3 (27,33): 41->38 omitido (cambia la clase 7->6)
 fase 3 (26,34): 41->38 omitido (cambia la clase 7->6)
 fase 3 (25,35): 41->38 omitido (cambia la clase 7->6)
+fase 3 (34,6): 14->30 (bajo el muro grande)
+fase 3 (35,7): 14->30 (bajo el muro grande)
+fase 3 (36,8): 14->30 (bajo el muro grande)
+fase 3 (37,9): 14->30 (bajo el muro grande)
+fase 3 (38,10): 14->30 (bajo el muro grande)
+fase 3 (39,11): 14->30 (bajo el muro grande)
+fase 3 (40,12): 14->30 (bajo el muro grande)
+fase 3 (41,13): 14->30 (bajo el muro grande)
+fase 3 (42,14): 14->30 (bajo el muro grande)
+fase 3 (43,15): 14->30 (bajo el muro grande)
+fase 3 (44,16): 14->30 (bajo el muro grande)
+fase 3 (45,17): 14->30 (bajo el muro grande)
+fase 3 (46,18): 14->30 (bajo el muro grande)
+fase 3 (47,19): 14->30 (bajo el muro grande)
+fase 3 (48,20): 14->30 (bajo el muro grande)
+fase 3 (49,21): 14->30 (bajo el muro grande)
+fase 3 (50,22): 14->30 (bajo el muro grande)
+fase 3 (51,23): 14->30 (bajo el muro grande)
+fase 3 (52,24): 14->30 (bajo el muro grande)
+fase 3 (53,25): 14->30 (bajo el muro grande)
+fase 3 (54,26): 14->30 (bajo el muro grande)
 fase 4 (28,5): 3->17
 fase 4 (48,5): 3->17
 fase 4 (48,9): 3->17
@@ -143,6 +186,7 @@ fase 6 (37,28): 24->13
 fase 6 (28,29): 3->17
 fase 6 (33,39): 9->51
 fase 6 (34,39): 10->52
+fase 7 (47,24): 30->27 (misma imagen)
 fase 7 (47,21): 27->6
 fase 7 (45,25): 5->2
 fase 8 (21,34): 2->5

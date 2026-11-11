@@ -121,8 +121,8 @@
    96
   ],
   "30": [
-   32,
-   96
+   192,
+   80
   ],
   "31": [
    224,
@@ -451,11 +451,12 @@
    16
   ]
  },
- "nota": "Posicion (x,y) en la hoja de baldosas de Guantxip de cada baldosa 32x16 del port (orden original de Topo). Deducido de los mapas faseN.png pintados por Guantxip; las baldosas que no aparecen en ningun mapa se asignaron por parecido con la baldosa original. Las baldosas 22 y 23 (familia 0) y 12, 13 y 16 (familia 1) no salen en los mapas de Topo: llevan baldosas nuevas de Guantxip que solo usan los mapas de assets-guantxip/maps (ver tools/compara_fases.py). \u00abocupacion\u00bb: de que baldosa de Topo toman la mascara de ocupacion (la que tapa las figuras) las baldosas nuevas.",
+ "nota": "Posicion (x,y) en la hoja de baldosas de Guantxip de cada baldosa 32x16 del port (orden original de Topo). Deducido de los mapas faseN.png pintados por Guantxip; las baldosas que no aparecen en ningun mapa se asignaron por parecido con la baldosa original. Las baldosas 22 y 23 (familia 0) y 12, 13 y 16 (familia 1) no salen en los mapas de Topo: llevan baldosas nuevas de Guantxip que solo usan los mapas de assets-guantxip/maps (ver tools/compara_fases.py). «ocupacion»: de que baldosa de Topo toman la mascara de ocupacion (la que tapa las figuras) las baldosas nuevas. La baldosa 30 (familia 0) lleva la variante de la 14 sin la esquina del bloque que Guantxip dibujo bajo el muro grande (11-11-2026); en sus mapas la 30 de Topo pasa a 27, que tiene la misma imagen.",
  "ocupacion": {
   "family0": {
    "22": 11,
-   "23": 27
+   "23": 27,
+   "30": 14
   },
   "family1": {
    "12": 28,
