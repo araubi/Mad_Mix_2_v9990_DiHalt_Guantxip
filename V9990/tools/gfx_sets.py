@@ -89,25 +89,50 @@ def compile_set(A,config,guantxip=False):
             ts=ET.parse(A/f'tiles/family{fam}.tsx').getroot();im=load(A/'tiles'/ts.find('image').get('source'),(256,112),config['terrain_bank'])
             occupancy=(A/f'tiles/family{fam}-occupancy.dat').read_bytes()
         assert len(occupancy)==3584
+        if guantxip:   # Guantxip's new tiles take the mask of the Topo tile they replace
+            occupancy=bytearray(occupancy)
+            for t,src in json.loads((A/'baldosas-mapa.json').read_text())['ocupacion'][f'family{fam}'].items():
+                occupancy[int(t)*64:int(t)*64+64]=occupancy[src*64:src*64+64]
+            occupancy=bytes(occupancy)
         cpu_tiles.append(occupancy)
         for t in range(56):
             for sy in range(2):
                 for sx in range(4):
                     x=(t%8)*32+sx*8;y=(t//8)*16+sy*8
                     tiles.append(im.crop((x,y,x+8,y+8)).tobytes())
+    maps=bytearray(9*4096)      # Guantxip: his corrected maps (tools/compara_fases.py)
+    for i in range(9):
+        m=ET.parse(A/f'maps/stage{i+1}.tmx').getroot();data=m.find('layer/data');assert data.get('encoding')=='csv'
+        cells=[int(v.strip())-1 for v in data.text.split(',') if v.strip()]
+        assert len(cells)==64*int(m.get('height')) and len(cells)<=3584 and all(0<=v<56 for v in cells)
+        maps[i*4096:i*4096+len(cells)]=bytes(cells)
     analyze_trace.PIECE_CACHE.clear()
     sprites=_guantxip_sprites(A) if guantxip else analyze_trace.load_sprites(A)
-    unique=[];lookup={};descs=bytearray();offsets=[]
+    unique=[];lookup={};descs=bytearray();offsets=[];seen={}
+    def compile_pose(sid,variant,sprites):
+        x=68 if variant==1 else 64
+        pieces=analyze_trace.sprite_pieces(dict(a=sid|(128 if variant else 0),d=32,e=x),sprites)
+        d=bytearray((len(pieces),))
+        for p in pieces:
+            pix=bytes(p['pixels'])
+            if pix not in lookup:lookup[pix]=len(unique);unique.append(pix)
+            n=lookup[pix]
+            d += struct.pack('<bbHHB',p['x']-x,p['y']-32,(n%16)*16,512+(n//16)*16,32+64*p['bank'])
+        d=bytes(d)
+        if d not in seen or not guantxip:seen[d]=len(descs);descs.extend(d)   # Guantxip: identical poses share one descriptor (DiHalt layout kept as v1.0)
+        return seen[d]
     for variant in range(3):
-        for sid in range(105):
-            x=68 if variant==1 else 64
-            pieces=analyze_trace.sprite_pieces(dict(a=sid|(128 if variant else 0),d=32,e=x),sprites)
-            offsets.append(len(descs));descs.append(len(pieces))
-            for p in pieces:
-                pix=bytes(p['pixels'])
-                if pix not in lookup:lookup[pix]=len(unique);unique.append(pix)
-                n=lookup[pix]
-                descs += struct.pack('<bbHHB',p['x']-x,p['y']-32,(n%16)*16,512+(n//16)*16,32+64*p['bank'])
+        for sid in range(105):offsets.append(compile_pose(sid,variant,sprites))
+    # Guantxip: red Pac bodies while the big-ball power lasts (port_ui ui_power).
+    power_ids=[0,1,2,3,4,5,25,26];power_offsets=[offsets[v*105+i] for v in range(3) for i in power_ids]
+    if guantxip and (A/'sprites/power.png').exists():
+        pm=json.loads((A/'sprites/sprites.json').read_text())['power'];assert pm['poses']==power_ids
+        strip=Image.open(A/'sprites'/pm['image']);red=list(sprites)
+        for k,sid in enumerate(power_ids):
+            im=strip.crop((24*k,0,24*k+24,24));assert all(v==0 or v//16==1 for v in im.tobytes()),sid
+            o=Image.frombytes('P',im.size,bytes(v&15 for v in im.tobytes()));o.info['palette_bank']=1;red[sid]=o
+        analyze_trace.PIECE_CACHE.clear()
+        power_offsets=[compile_pose(i,v,red) for v in range(3) for i in power_ids]
     analyze_trace.PIECE_CACHE.clear()
     master=bytearray(((len(unique)+15)//16)*2048)
     for i,t in enumerate(unique):
@@ -122,8 +147,9 @@ def compile_set(A,config,guantxip=False):
         family=(pal[3:48],f1[3:48])      # entries 1..15 of bank 0; entry 0 = backdrop
     assert len(pat8(patterns))<=0x10000
     return dict(patterns=pat8(patterns),hud_names=struct.pack('<768H',*names),life_names=struct.pack('<9H',*life),
-                tiles=pat8(tiles),cpu_tiles=cpu_tiles,master=bytes(master),descs=bytes(descs),
-                offsets=b''.join(struct.pack('<H',x) for x in offsets),palette=pal,family=family,
+                tiles=pat8(tiles),cpu_tiles=cpu_tiles,maps=bytes(maps),master=bytes(master),descs=bytes(descs),
+                offsets=b''.join(struct.pack('<H',x) for x in offsets),
+                power=bytes((int(guantxip),))+struct.pack('<24H',*power_offsets),palette=pal,family=family,
                 master_patterns=len(unique))
 
 class Package:

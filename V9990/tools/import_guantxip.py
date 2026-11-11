@@ -74,7 +74,23 @@ def sprites():
         im=Image.frombytes('P',(w,h),bytes(bank*16+v if v else 0 for v in px))
         sheet.paste(im,(row['x'],row['y']))
         poses.append(dict(row,palette_bank=bank,source=(f'guantxip paleta {spec[0]} x={spec[1]} y={spec[2]}' if spec else 'original Topo (sin dibujo de Guantxip)')))
-    return sheet,bank1,bank3,dict(meta,poses=poses)
+    # Power (big ball eaten): Guantxip redrew Pac's bodies in red, in the row
+    # under the yellow ones (y=56, same cells). Pose 5 has no drawing: the
+    # yellow fallback is recoloured (yellow 7 -> red 11 of paleta 3).
+    power=[]
+    for i,x in POWER:
+        if x is None:
+            mono=Image.open(D/f'sprites/{i:03d}.png').tobytes();w=h=24
+            halo=lambda k:mono[k]==1 and any(not(0<=xx<w and 0<=yy<h) or mono[yy*w+xx]==0 for xx,yy in ((k%w-1,k//w),(k%w+1,k//w),(k%w,k//w-1),(k%w,k//w+1)))
+            px=[inv3[{1:11,2:15}[v]] if v and not halo(k) else 0 for k,v in enumerate(mono)]
+        else:
+            px=[inv3[v] if v else 0 for v in s3.crop((x,56,x+24,80)).tobytes()]
+        power.append(Image.frombytes('P',(24,24),bytes(16+v if v else 0 for v in px)))
+    strip=Image.new('P',(24*len(power),24))
+    for k,im in enumerate(power):strip.paste(im,(24*k,0))
+    return sheet,bank1,bank3,dict(meta,poses=poses,power=dict(image='power.png',poses=[i for i,x in POWER],
+        description='Pac in red while the big ball lasts: one 24x24 cell per pose, same order. Bank 1.')),strip
+POWER=[(0,0),(1,24),(2,48),(3,72),(4,96),(5,None),(25,120),(26,144)]   # pose -> x of its red body
 
 def hud(bank1):
     src=Image.open(O/'ventana.png').convert('RGB').crop((0,0,256,192))
@@ -83,11 +99,20 @@ def hud(bank1):
     for c in src.getdata():
         if c!=MAG and c not in cols:cols.append(c)
     # Life icon: Guantxip's pose-0 face, in the HUD bank.
-    s3=Image.open(O/'sprites_paleta3.png').convert('RGB');face=s3.crop((0,0,24,24))
-    # The game draws Pac's eye as a separate piece four lines below the face's
-    # origin (matched on screen). The life icon uses the eye of pose 7 (under
-    # mouth-open pose 1), where it shows in front as in play, not the one that
-    # lands on pose 0's highlight.
+    s3=Image.open(O/'sprites_paleta3.png').convert('RGB');body=s3.crop((0,0,24,24))
+    # The game draws Pac's eyes as separate pieces, like DIBUJA_PROTA: the back
+    # eye (pose 6) two lines below the body's origin and behind it, then the
+    # body, then the front eye (pose 7) four lines below, in front.
+    face=Image.new('RGB',(24,24),(255,0,255))
+    back=s3.crop((0,24,24,32))
+    for y in range(8):
+        for x in range(24):
+            c=back.getpixel((x,y))
+            if c!=(255,0,255) and y+2<24:face.putpixel((x,y+2),c)
+    for y in range(24):
+        for x in range(24):
+            c=body.getpixel((x,y))
+            if c!=(255,0,255):face.putpixel((x,y),c)
     eye=s3.crop((24,24,48,32))
     for y in range(8):
         for x in range(24):
@@ -117,10 +142,10 @@ def hud(bank1):
     return h,life,bank2,dict(styles,styles=newstyles,description=styles['description']+' Remapped by import_guantxip.py to the Guantxip HUD bank.')
 
 def main():
-    t0,t1=tiles();sheet,b1,b3,meta=sprites();h,life,b2,styles=hud(b1)
+    t0,t1=tiles();sheet,b1,b3,meta,power=sprites();h,life,b2,styles=hud(b1)
     banks=[t0,b1,b2,b3]
     table=[v for b in banks for c in b for v in c]+[0]*576
-    for im,path in ((sheet,'sprites/sprites.png'),(h,'hud.png'),(life,'life.png')):
+    for im,path in ((sheet,'sprites/sprites.png'),(power,'sprites/power.png'),(h,'hud.png'),(life,'life.png')):
         im.putpalette(table);(G/path).parent.mkdir(exist_ok=True);im.save(G/path,transparency=bytes(0 if i%16==0 else 255 for i in range(256)))
     (G/'sprites/sprites.json').write_text(json.dumps(meta,indent=2)+'\n')
     (G/'font-styles.json').write_text(json.dumps(styles,indent=2)+'\n')

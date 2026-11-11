@@ -89,12 +89,12 @@
    48
   ],
   "22": [
-   224,
-   176
+   96,
+   80
   ],
   "23": [
-   224,
-   176
+   128,
+   96
   ],
   "24": [
    64,
@@ -275,12 +275,12 @@
    80
   ],
   "12": [
-   224,
-   176
+   32,
+   96
   ],
   "13": [
-   224,
-   176
+   32,
+   112
   ],
   "14": [
    192,
@@ -291,8 +291,8 @@
    64
   ],
   "16": [
-   224,
-   176
+   160,
+   112
   ],
   "17": [
    128,
@@ -451,5 +451,16 @@
    16
   ]
  },
- "nota": "Posicion (x,y) en la hoja de baldosas de Guantxip de cada baldosa 32x16 del port (orden original de Topo). Deducido de los mapas faseN.png pintados por Guantxip; las baldosas que no aparecen en ningun mapa se asignaron por parecido con la baldosa original."
+ "nota": "Posicion (x,y) en la hoja de baldosas de Guantxip de cada baldosa 32x16 del port (orden original de Topo). Deducido de los mapas faseN.png pintados por Guantxip; las baldosas que no aparecen en ningun mapa se asignaron por parecido con la baldosa original. Las baldosas 22 y 23 (familia 0) y 12, 13 y 16 (familia 1) no salen en los mapas de Topo: llevan baldosas nuevas de Guantxip que solo usan los mapas de assets-guantxip/maps (ver tools/compara_fases.py). \u00abocupacion\u00bb: de que baldosa de Topo toman la mascara de ocupacion (la que tapa las figuras) las baldosas nuevas.",
+ "ocupacion": {
+  "family0": {
+   "22": 11,
+   "23": 27
+  },
+  "family1": {
+   "12": 28,
+   "13": 24,
+   "16": 27
+  }
+ }
 }

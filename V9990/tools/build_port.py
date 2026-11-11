@@ -52,8 +52,13 @@ def main():
     uploads=[]
     (B/'port-hud-names.bin').write_bytes(dihalt['hud_names'])
     (B/'port-life-names.bin').write_bytes(dihalt['life_names'])
-    cpu_tiles=dihalt['cpu_tiles']
-    assert guantxip['cpu_tiles']==cpu_tiles,'Both sets keep the original collision/occupancy masks'
+    # Occupancy masks are shared: Guantxip only adds masks for his new tiles,
+    # at tile numbers that Topo's maps (the DiHalt set) never use.
+    cpu_tiles=guantxip['cpu_tiles']
+    new_tiles=json.loads((gx_root/'baldosas-mapa.json').read_text())['ocupacion']
+    for fam in range(2):
+        for t in range(56):
+            if str(t) not in new_tiles[f'family{fam}']:assert cpu_tiles[fam][t*64:t*64+64]==dihalt['cpu_tiles'][fam][t*64:t*64+64],(fam,t)
     uploads += [(0,dihalt['patterns']),(0x40000,dihalt['tiles']),(0x48000,dihalt['tiles']),(0x72000,dihalt['tiles'])]
     unique=range(dihalt['master_patterns']);descs=dihalt['descs']
     uploads.append((0x10000,dihalt['master']))
@@ -70,13 +75,7 @@ def main():
     for k in ('descs','offsets'):assert len(guantxip[k])<=len(dihalt[k]),f'Guantxip {k} larger than the resident DiHalt area'
     # Store full editable maps in VRAM as non-displayed data. Runtime loads the
     # selected 3584-byte bank into original A900 collision/game map RAM.
-    maps=bytearray(9*4096)
-    for i in range(9):
-        m=ET.parse(A/f'maps/stage{i+1}.tmx').getroot();data=m.find('layer/data');assert data.get('encoding')=='csv'
-        cells=[int(v.strip())-1 for v in data.text.split(',') if v.strip()]
-        assert len(cells)==64*int(m.get('height')) and len(cells)<=3584 and all(0<=v<56 for v in cells)
-        maps[i*4096:i*4096+len(cells)]=bytes(cells)
-    uploads.append((0x20000,maps))
+    uploads.append((0x20000,dihalt['maps']))   # each set package rewrites them
     pal=bytes(c for bank in json.loads((A/'palettes.json').read_text())['banks'] for rgb in bank for c in rgb)
     (B/'port-palette.bin').write_bytes(pal)
     (B/'port-tms-palette.bin').write_bytes(pal[48:96])
@@ -157,11 +156,12 @@ def main():
     # then rebuild the same-sized banks with the real addresses.
     def set_package(st,addr,family_banks):
         pk=Package()
-        pk.ram(addr['ui_family_banks'],bytes(family_banks))
+        pk.ram(addr['ui_family_banks'],bytes(family_banks));pk.ram(addr['ui_power_on'],st['power'])
         pk.ram(addr['pose_offsets'],st['offsets']);pk.ram(addr['pose_data'],st['descs'])
         pk.ram(addr['hud_names'],st['hud_names']);pk.ram(addr['life_names'],st['life_names'])
         pk.vram(0,st['patterns']);pk.vram(0x10000,st['master'])
         for a in (0x40000,0x48000,0x72000):pk.vram(a,st['tiles'])
+        pk.vram(0x20000,st['maps'])
         return pk.blobs()
     def pal_package(entry,data):
         pk=Package();pk.palette(entry,data);return pk.blobs()
@@ -173,7 +173,7 @@ def main():
     place('MENU_PALETTE_BANK',pal_package(32,dihalt['palette'][96:144]))
     place('GUANTXIP_FAMILY0_BANK',pal_package(1,guantxip['family'][0]))
     place('GUANTXIP_FAMILY1_BANK',pal_package(1,guantxip['family'][1]))
-    dummy=dict.fromkeys(('ui_family_banks','pose_offsets','pose_data','hud_names','life_names'),0x1100)
+    dummy=dict.fromkeys(('ui_family_banks','ui_power_on','pose_offsets','pose_data','hud_names','life_names'),0x1100)
     gx_family=(gfx['GUANTXIP_FAMILY0_BANK'][0],gfx['GUANTXIP_FAMILY1_BANK'][0])
     place('GUANTXIP_SET_BANK',set_package(guantxip,dummy,gx_family))
     place('DIHALT_SET_BANK',set_package(dihalt,dummy,(0,0)))
@@ -192,7 +192,7 @@ def main():
         if name=='port_ui':
             listing=(B/'port_ui.lst').read_text()
             (B/'ui-api.inc').write_text(f'UI_BYTES equ {len((B/"port_ui.bin").read_bytes())}\n')
-            set_addr={'ui_family_banks':int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?ui_family_banks\s*$',listing,re.M)[1],16)}
+            set_addr={k:int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?'+k+r'\s*$',listing,re.M)[1],16) for k in ('ui_family_banks','ui_power_on')}
             audio_api=[]
             for label in ('music_active','music_bank','music_ptr','music_shadow'):
                 address=int(re.search(r'00:0000([0-9A-F]{4})\s+(?:X\s+)?shared_'+label+r'\s*$',listing,re.M)[1],16)

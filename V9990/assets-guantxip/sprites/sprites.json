@@ -1054,5 +1054,19 @@
       "palette_bank": 3,
       "source": "guantxip paleta 4 x=144 y=0"
     }
-  ]
+  ],
+  "power": {
+    "image": "power.png",
+    "poses": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      25,
+      26
+    ],
+    "description": "Pac in red while the big ball lasts: one 24x24 cell per pose, same order. Bank 1."
+  }
 }

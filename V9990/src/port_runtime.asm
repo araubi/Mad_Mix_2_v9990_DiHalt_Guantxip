@@ -551,7 +551,7 @@ mirror_index:
 pose_index:
     add hl,hl
     ld bc,pose_offsets
-    add hl,bc
+    call $E869              ; ui_power: red Pac while the big ball lasts (Guantxip)
     ld e,(hl)
     inc hl
     ld d,(hl)

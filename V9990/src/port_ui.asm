@@ -27,6 +27,67 @@ cpu_switch:
     include "port_cpu_switch.inc"
     assert cpu_switch==$E832
     assert ui_dirs==$E830
+; E869, draw_pose: HL=2*pose index (0..628), BC=pose_offsets -> HL=&offset word.
+; Guantxip set: while the big-ball power lasts (word $3FA5, original timer) Pac's
+; bodies use his red sprites; under 30 ticks they blink like the original colour.
+ui_power:
+    push hl
+    add hl,bc
+    ex (sp),hl                 ; stack = normal pointer, HL = 2*index
+    ld a,(ui_power_on)
+    or a
+    jr z,pw_normal
+    ld de,($3FA5)
+    ld a,d
+    or e
+    jr z,pw_normal
+    ld a,d
+    or a
+    jr nz,pw_red
+    ld a,e
+    cp 30
+    jr nc,pw_red
+    and 1                      ; original TIEMPOS_PROTA blinks on bit 0
+    jr nz,pw_normal
+pw_red:
+    ld de,210
+    ld c,0                     ; variant*8
+pw_variant:
+    or a
+    sbc hl,de
+    jr c,pw_pose
+    ld a,c
+    add a,8
+    ld c,a
+    jr pw_variant
+pw_pose:
+    add hl,de
+    ld a,l
+    rrca                       ; pose 0..104
+    ld hl,ui_power_poses
+    ld b,8
+pw_scan:
+    cp (hl)
+    jr z,pw_hit
+    inc hl
+    inc c
+    djnz pw_scan
+pw_normal:
+    pop hl
+    ret
+pw_hit:
+    pop hl
+    ld a,c
+    add a,a
+    ld l,a
+    ld h,0
+    ld de,ui_power_offsets
+    add hl,de
+    ret
+ui_power_poses: db 0,1,2,3,4,5,25,26
+ui_power_on: db 0              ; written by each set package (1 = Guantxip)
+ui_power_offsets: ds 48        ; 3 variants x 8 poses, offsets into pose_data
+    assert ui_power==$E869
 ui_init:
     call display_off
     ld a,$C8
