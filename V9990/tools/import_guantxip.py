@@ -45,6 +45,20 @@ def tiles():
         banks.append(colors)
     return banks
 
+def pose5_from4(cell):
+    """Pose 5 (not drawn by Guantxip) from his pose 4: Topo's pose 5 is his
+    pose 4 about one pixel narrower on the right (lines 6-19). Shift the
+    right-hand edge (outline and shading) in by one, so the outline stays one
+    pixel thick like the rest of his frames."""
+    vals=[v for v in cell if v];interior=max(set(vals),key=vals.count);out=list(cell)
+    for y in range(6,20):
+        row=list(cell[y*24:y*24+24]);nz=[x for x in range(24) if row[x]]
+        if not nz or interior not in row:continue
+        L=nz[-1];j=L
+        while row[j-1]!=interior:j-=1
+        new=row[:j-1]+row[j:L+1];out[y*24:y*24+24]=new+[0]*(24-len(new))
+    return bytes(out)
+
 def sprites():
     m=json.loads((G/'figuras-mapa.json').read_text())['poses']
     meta=json.loads((D/'sprites/sprites.json').read_text())
@@ -55,15 +69,15 @@ def sprites():
     bank1=[p3[i] for i in order3];inv3={old:new for new,old in enumerate(order3)}
     bank3=p4
     sheet=Image.new('P',(256,448));poses=[]
-    fallback={5:{1:7,2:15},20:{1:15,2:0},88:{1:14,2:15},90:{1:14,2:15}}  # mono 1/2 -> palette-3 index
+    fallback={20:{2:9},88:{1:14,2:15},90:{1:14,2:15}}  # mono 1/2 -> palette-3 index
     for row in meta['poses']:
         i=row['id'];w,h=row['width'],row['height'];spec=m[str(i)]
-        if spec is None:
+        if i==5:   # derived from his pose 4 (see pose5_from4)
+            px=[inv3[v] if v else 0 for v in pose5_from4(s3.crop((96,0,120,24)).tobytes())];bank=1
+        elif spec is None:
             mono=Image.open(D/f'sprites/{i:03d}.png');assert mono.size==(w,h)
             mono=mono.tobytes()
-            # Topo's 1-pixel white halo (mask) is not part of Guantxip's style.
-            halo=lambda k:mono[k]==1 and any(not(0<=xx<w and 0<=yy<h) or mono[yy*w+xx]==0 for xx,yy in ((k%w-1,k//w),(k%w+1,k//w),(k%w,k//w-1),(k%w,k//w+1)))
-            px=[inv3[fallback[i][v]] if v and not (i==5 and halo(k)) else 0 for k,v in enumerate(mono)];bank=1
+            px=[inv3[fallback[i][v]] if v else 0 for k,v in enumerate(mono)];bank=1
         else:
             n,x,y=spec[:3];maxy=spec[3] if len(spec)>3 else 999
             src=s3 if n==3 else s4
@@ -73,16 +87,14 @@ def sprites():
             else:bank=3
         im=Image.frombytes('P',(w,h),bytes(bank*16+v if v else 0 for v in px))
         sheet.paste(im,(row['x'],row['y']))
-        poses.append(dict(row,palette_bank=bank,source=(f'guantxip paleta {spec[0]} x={spec[1]} y={spec[2]}' if spec else 'original Topo (sin dibujo de Guantxip)')))
+        poses.append(dict(row,palette_bank=bank,source=(f'guantxip paleta {spec[0]} x={spec[1]} y={spec[2]}' if spec else 'pose 4 de Guantxip estrechada como la 5 de Topo' if i==5 else 'original Topo (sin dibujo de Guantxip)')))
     # Power (big ball eaten): Guantxip redrew Pac's bodies in red, in the row
     # under the yellow ones (y=56, same cells). Pose 5 has no drawing: the
     # yellow fallback is recoloured (yellow 7 -> red 11 of paleta 3).
     power=[]
     for i,x in POWER:
         if x is None:
-            mono=Image.open(D/f'sprites/{i:03d}.png').tobytes();w=h=24
-            halo=lambda k:mono[k]==1 and any(not(0<=xx<w and 0<=yy<h) or mono[yy*w+xx]==0 for xx,yy in ((k%w-1,k//w),(k%w+1,k//w),(k%w,k//w-1),(k%w,k//w+1)))
-            px=[inv3[{1:11,2:15}[v]] if v and not halo(k) else 0 for k,v in enumerate(mono)]
+            px=[inv3[v] if v else 0 for v in pose5_from4(s3.crop((96,56,120,80)).tobytes())]
         else:
             px=[inv3[v] if v else 0 for v in s3.crop((x,56,x+24,80)).tobytes()]
         power.append(Image.frombytes('P',(24,24),bytes(16+v if v else 0 for v in px)))
