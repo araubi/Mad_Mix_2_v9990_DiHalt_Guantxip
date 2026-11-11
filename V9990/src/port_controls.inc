@@ -1,5 +1,6 @@
 ; Combined fixed keyboard and both joystick ports. Original logical E bits retained.
 ; Q/A/O/P, arrows; SPACE/M and either joystick trigger; H pause remains original.
+; 0 (testing): ends the stage.
 read_controls:
     push bc
     push de
@@ -37,6 +38,15 @@ no_right:
     jr nz,no_m
     set 4,e
 no_m:
+    in a,($AA)                   ; test key 0 (row 0 bit 0): finish the stage
+    and $F0
+    out ($AA),a
+    in a,($A9)
+    rra
+    jr c,no_zero
+    ld hl,($3E8D)                ; COCOS_COMIDOS = COCOS_TOTAL, as when the last
+    ld ($3E8B),hl                ; dot is eaten
+no_zero:
     ld c,e
     ld a,7
     out ($A0),a
