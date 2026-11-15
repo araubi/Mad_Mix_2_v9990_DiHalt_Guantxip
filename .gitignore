@@ -12,3 +12,4 @@ release/*
 *.log
 *.toc
 *.out
+!release/*.zip

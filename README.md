@@ -1,23 +1,45 @@
-# Mad Mix 2 for MSX and V9990
+# Mad Mix 2 V9990: DiHalt + Guantxip (v1.0)
 
-**A colourful P1 conversion of Topo Soft’s 1990 MSX game, running on a Z80.** An unofficial homage port by **DiHalt Studio**, 2026.
+Versión de la conversión V9990 de **Mad Mix 2** (Topo Soft, 1990) hecha por **DiHalt Studio** ([DiHaltStudio/madmix2-v9990](https://github.com/DiHaltStudio/madmix2-v9990), v1.0), **coloreada por Guantxip**: lleva su set gráfico completo (losetas, figuras, marcador) y se puede elegir en el menú entre el set de Guantxip y el original de DiHalt. Hecha con permiso expreso de DiHalt Studio.
 
-![Mad Mix 2 gameplay](V9990/docs/img/play.png)
+![Mad Mix 2 V9990](V9990/docs/img/play.png)
 
-## Play it
+## Cómo se juega
 
-Download the ROM and Spanish or English manual from [Release v1.0](https://github.com/DiHaltStudio/madmix2-v9990/releases/tag/v1.0). Requires an MSX with Z80, V9990 cartridge and an ASCII16-compatible ROM loader. Put the ROM in `release/` and run `make run`. Controls: cursor keys or joystick to move; Space or fire to select and play; H pauses (fire resumes). At the menu, up/down choose a row and left/right change it: STANDARD or HARD, the graphics set (GUANTXIP or DIHALT), and which diagonal the up key moves along (ARRIBA IZQDA: up-left, as the original; ARRIBA DCHA: up-right, every direction turned 90 degrees), and Z80 or R800 (MSX turbo R only; elsewhere the row stays at Z80).
+ROM compilada en [`release/MadMix2_V9990_DiHalt_Guantxip_v1.0.zip`](release/) (ROM de 2 MB, mapper ASCII16, la detectan solos openMSX y blueMSX). Necesita un MSX con Z80 y cartucho V9990 (GFX9000).
 
-Manuals: [Español](V9990/docs/manual/manual-es.pdf) · [English](V9990/docs/manual/manual-en.pdf).
+- Cursores o joystick para mover; ESPACIO o disparo para elegir y jugar; H pausa (se sigue con disparo).
+- En el menú, arriba/abajo eligen la línea y izquierda/derecha cambian su valor:
+  - STANDARD / HARD.
+  - Set gráfico: GUANTXIP (el de entrada) o DIHALT.
+  - ARRIBA IZQDA (como el original) o ARRIBA DCHA (arriba lleva a Pac arriba a la derecha; todas las direcciones giran 90°).
+  - Z80 / R800: solo en un MSX turbo R (en los demás se queda en Z80).
+- Con el set de Guantxip: sus mapas corregidos (cada loseta nueva conserva la colisión de la que sustituye, así que se juega igual; lista en `V9990/assets-guantxip/maps/cambios.txt`), Pac rojo mientras dura la bola grande y las vidas con los dos ojos. El set DIHALT es el de la v1.0 de DiHalt sin cambios.
 
-## Building from source
+Manuales de DiHalt: [Español](V9990/docs/manual/manual-es.pdf) · [English](V9990/docs/manual/manual-en.pdf).
 
-The original Mad Mix 2 game is not distributed here. Set `ORIGINAL_DIR` to a private workspace containing the original CAS and its reconstructed `MSX/build` images, plus the extracted opening artwork and original PSG recordings. See [building instructions](docs/BUILDING.md). Run `make build ORIGINAL_DIR=/path/to/private/workspace`.
+## Compilar
 
-The editable terrain, sprites, HUD, maps, palettes and P1 renderer live under `V9990/`. `make release` copies the ROM and manuals to `release/`; generated ROMs are excluded from Git.
+El juego original no se distribuye aquí. La compilación necesita un directorio privado con la cinta original y lo que se extrae de ella: ver [docs/BUILDING.md](docs/BUILDING.md) (`make build ORIGINAL_DIR=...`). El arte de Guantxip está en `V9990/assets-guantxip/` (sus hojas tal cual en `original/`; `V9990/tools/import_guantxip.py` las convierte y `V9990/tools/compara_fases.py` saca sus mapas corregidos).
 
-Please improve the game if you feel so! The art, maps and palette can be edited in the included source files.
+## Créditos
 
-## Credits and rights
+- Juego original: **Topo Soft**, 1990.
+- Conversión V9990, motor, música, set gráfico DIHALT y manuales: **DiHalt Studio**, 2026.
+- Set gráfico GUANTXIP (coloreado): **Guantxip**.
+- Esta versión (opción de set, importación del arte de Guantxip, menú, R800, pruebas): **araubi**, desarrollado con Claude (Anthropic).
 
-Original game: Topo Soft, 1990. V9990 conversion and DiHalt graphics set: DiHalt Studio, 2026. Guantxip graphics set (terrain, sprites and HUD from his V9990 remake art): Guantxip; his art remains his own. Graphics-set option and Guantxip import: araubi, with permission from DiHalt Studio; developed with Claude (Anthropic). This is an unofficial port for study, preservation and homage. Original game rights and trademarks remain with their respective owners.
+## Licencia y avisos
+
+- Las herramientas y el código añadidos en esta versión (`V9990/tools/import_guantxip.py`, `V9990/tools/compara_fases.py`, `V9990/tools/gfx_sets.py`, `V9990/src/port_cpu_switch.inc` y los cambios de esta versión al código) van con licencia **MIT** ([LICENSE](LICENSE)).
+- La documentación propia de esta versión (este README y lo añadido a `docs/BUILDING.md`) va con licencia **CC BY-NC-SA 4.0** ([LICENSE-CC](LICENSE-CC)).
+- El resto del código, el arte, la música y los manuales de la conversión son de **DiHalt Studio**, que no publicó licencia: se incluyen con su permiso para esta versión y siguen siendo suyos.
+- Los gráficos del set GUANTXIP son de **Guantxip** y siguen siendo suyos.
+- Mad Mix 2 y su código original son de sus titulares. La ROM de `release/` contiene el juego original convertido y no queda cubierta por ninguna de estas licencias.
+- Es un homenaje sin ánimo de lucro, para estudio y conservación. Si algún titular de derechos lo pide, se retira.
+
+---
+
+# Mad Mix 2 V9990: DiHalt + Guantxip (v1.0), in English
+
+A version of **DiHalt Studio**'s V9990 conversion of Topo Soft's 1990 game, **coloured by Guantxip**: his full graphics set, selectable in the menu against DiHalt's original one. Made with DiHalt Studio's explicit permission. The ROM is in `release/` (2 MB, ASCII16, MSX with Z80 and V9990). New tools and code: MIT; this version's own docs: CC BY-NC-SA 4.0; DiHalt Studio's code, art, music and manuals remain theirs (no licence published, used with permission); Guantxip's art remains his; original game rights remain with their owners. Developed by araubi with Claude (Anthropic).
