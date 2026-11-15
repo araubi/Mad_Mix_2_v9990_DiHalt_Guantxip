@@ -6,7 +6,7 @@
 
 ## Play it
 
-Download the ROM and Spanish or English manual from [Release v1.0](https://github.com/DiHaltStudio/madmix2-v9990/releases/tag/v1.0). Requires an MSX with Z80, V9990 cartridge and an ASCII16-compatible ROM loader. Put the ROM in `release/` and run `make run`. Controls: cursor keys or joystick to move; Space or fire to select and play; H pauses (fire resumes); 0 ends the stage (testing only, to be removed before release). At the menu, up/down choose a row and left/right change it: STANDARD or HARD, the graphics set (GUANTXIP or DIHALT), and which diagonal the up key moves along (ARRIBA IZQDA: up-left, as the original; ARRIBA DCHA: up-right, every direction turned 90 degrees), and Z80 or R800 (MSX turbo R only; elsewhere the row stays at Z80).
+Download the ROM and Spanish or English manual from [Release v1.0](https://github.com/DiHaltStudio/madmix2-v9990/releases/tag/v1.0). Requires an MSX with Z80, V9990 cartridge and an ASCII16-compatible ROM loader. Put the ROM in `release/` and run `make run`. Controls: cursor keys or joystick to move; Space or fire to select and play; H pauses (fire resumes). At the menu, up/down choose a row and left/right change it: STANDARD or HARD, the graphics set (GUANTXIP or DIHALT), and which diagonal the up key moves along (ARRIBA IZQDA: up-left, as the original; ARRIBA DCHA: up-right, every direction turned 90 degrees), and Z80 or R800 (MSX turbo R only; elsewhere the row stays at Z80).
 
 Manuals: [Español](V9990/docs/manual/manual-es.pdf) · [English](V9990/docs/manual/manual-en.pdf).
 
